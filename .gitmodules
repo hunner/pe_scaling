@@ -1,0 +1,6 @@
+[submodule "modules/haproxy"]
+	path = modules/haproxy
+	url = https://github.com/puppetlabs/puppetlabs-haproxy.git
+[submodule "modules/pe_shared_ca"]
+	path = modules/pe_shared_ca
+	url = https://github.com/puppetlabs/puppetlabs-pe_shared_ca
