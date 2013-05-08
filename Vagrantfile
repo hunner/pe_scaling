@@ -1,6 +1,6 @@
 boxes = Hash.new
 boxes['debian'] = 'debian-607-x64-vbox4210'
-boxes['centos'] = 'CentOS-6.4-x86_64-v20130309'
+boxes['centos'] = 'centos-64-x64-vbox4210'
 
 Vagrant::Config.run do |config|
   {
