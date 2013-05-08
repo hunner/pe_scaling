@@ -1,19 +1,35 @@
-# -*- mode: ruby -*-
-# vi: set ft=ruby :
+boxes = Hash.new
+boxes['debian'] = 'debian-607-x64-vbox4210'
+boxes['centos'] = 'CentOS-6.4-x86_64-v20130309'
 
 Vagrant::Config.run do |config|
   {
-    'master-ca-primary' => '10.10.10.10',
-    'haproxy'           => '10.10.10.14',
-    'master-nonca1'     => '10.10.10.11',
-    'master-nonca2'     => '10.10.10.12',
-    'agent1'            => '10.10.10.13',
-  }.each do |osname, ip|
-    config.vm.define osname do |node|
-      node.vm.box = 'CentOS-6.4-x86_64-v20130309'
-      node.vm.host_name = "#{osname}.puppetlabs.vm"
-      node.vm.network :hostonly, ip
-      node.vm.provision :shell, :path => "provision.sh"
+    'debian' => {
+      'master-ca1'    => '10.0.10.10',
+      'master-nonca1' => '10.0.10.11',
+      'master-nonca2' => '10.0.10.12',
+      'haproxy'       => '10.0.10.13',
+      'agent1'        => '10.0.10.14',
+    },
+    'centos' => {
+      'master-ca1'    => '10.0.10.10',
+      'master-nonca1' => '10.0.10.11',
+      'master-nonca2' => '10.0.10.12',
+      'haproxy'       => '10.0.10.13',
+      'agent1'        => '10.0.10.14',
+    }
+  }.each do |platform, nodes|
+    nodes.each do |osname, ip|
+      config.vm.define "#{platform}-#{osname}" do |node|
+        node.vm.box = boxes[platform]
+        node.vm.host_name = "#{osname}.puppetlabs.vm"
+        node.vm.network :hostonly, ip
+        node.vm.provision :shell do |shell|
+          shell.path = "provision.sh"
+          shell.args = "#{ENV['peversion']} #{platform}"
+        end
+      end
     end
   end
 end
+# vim: set sts=2 sw=2 ts=2 :
