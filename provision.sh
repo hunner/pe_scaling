@@ -1,37 +1,32 @@
 #!/bin/sh
 
-if [ -z "$1" -o -z "$2" ] ; then
-    echo "PE version and platform arguments required"
-    exit 1
-else
-    peversion=$1
-    peplatform=$2
-fi
-
-if [ $peplatform == 'debian' ] ; then
-    if ! egrep '^en_US.UTF-8 UTF-8$' /etc/locale.gen ; then
-        echo 'en_US.UTF-8 UTF-8' >> /etc/locale.gen
-        locale-gen
-    fi
-fi
-
 export PATH=$PATH:/usr/local/bin
 
-if [ $peplatform == 'centos' ] ; then
-    puppet resource service iptables ensure=stopped
+puppet resource service iptables ensure=stopped
+
+if ! grep 'puppet.puppetlabs.vm' /etc/hosts ; then
+    cat >> /etc/hosts <<EOF
+10.2.10.10 dg.puppetlabs.vm       dg
+10.2.10.11 haproxy.puppetlabs.vm  haproxy
+10.2.10.12 nonca1.puppetlabs.vm   nonca1
+10.2.10.13 nonca2.puppetlabs.vm   nonca2
+10.2.10.14 mysql.puppetlabs.vm    mysql
+10.2.10.15 console1.puppetlabs.vm console1
+10.2.10.16 console2.puppetlabs.vm console2
+10.2.10.17 agent1.puppetlabs.vm   agent1
+10.2.10.11 puppet.puppetlabs.vm   puppet
+EOF
 fi
 
-puppet resource host master-ca1.puppetlabs.vm    ensure=present ip=10.10.10.10 host_aliases=master-ca1
-puppet resource host master-nonca1.puppetlabs.vm ensure=present ip=10.10.10.11 host_aliases=master-nonca1
-puppet resource host master-nonca2.puppetlabs.vm ensure=present ip=10.10.10.12 host_aliases=master-nonca2
-puppet resource host haproxy.puppetlabs.vm       ensure=present ip=10.10.10.13 host_aliases=puppet.puppetlabs.vm
-puppet resource host agent1.puppetlabs.vm        ensure=present ip=10.10.10.14 host_aliases=agent1
+if [ $HOSTNAME = 'console1.puppetlabs.vm' -o $HOSTNAME = 'console2.puppetlabs.vm' ] ; then
+  puppet resource package mysql ensure=present
+fi
 
 if [ ! -d /opt/puppet ] ; then
-    /vagrant/pe-${peversion}-${peplatform}/puppet-enterprise-installer -D -a /vagrant/answers-${peversion}-${peplatform}/`hostname -f`
+    /vagrant/pe/puppet-enterprise-installer -D -a /vagrant/answers/`hostname -f`
 fi
 
 /opt/puppet/bin/puppet resource package puppet ensure=absent
 /opt/puppet/bin/puppet resource package facter ensure=absent
 
-/opt/puppet/bin/puppet apply /vagrant/manifests/site.pp --modulepath /vagrant/modules:/opt/puppet/share/puppet/modules
+/opt/puppet/bin/puppet apply /vagrant/manifests/site.pp --show_diff --modulepath /vagrant/modules:/opt/puppet/share/puppet/modules
