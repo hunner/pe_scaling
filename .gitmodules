@@ -10,6 +10,3 @@
 [submodule "modules/pe_httpd"]
 	path = modules/pe_httpd
 	url = https://github.com/hunner/pe_httpd
-[submodule "modules/mysql"]
-	path = modules/mysql
-	url = https://github.com/puppetlabs/puppetlabs-mysql

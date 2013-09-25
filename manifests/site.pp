@@ -7,11 +7,11 @@ node 'dg' {
   #include pe_caproxy::ca
 
   #not needed for custom stuff
-  include pe_accounts
-  include pe_mcollective
+  #include pe_accounts
+  #include pe_mcollective
 
   #needed on non-ca masters. They don't seem to get the master_role group in the Console?
-  include pe_mcollective::role::master
+  #include pe_mcollective::role::master
 
   ## Sets up /facts in auth.conf for inventory service
   #class { 'auth_conf::defaults':
@@ -30,158 +30,152 @@ node 'dg' {
   #}
 
   ## EXTRA: To make vagrant easier
-  file { '/etc/puppetlabs/puppet/autosign.conf':
-    ensure  => file,
-    content => "*\n",
-  }
-  ini_setting { 'puppet.conf main manifest':
-    path    => '/etc/puppetlabs/puppet/puppet.conf',
-    section => 'main',
-    setting => 'manifest',
-    value   => '/vagrant/manifests/site.pp',
-  }
-  ini_setting { 'puppet.conf main modulepath':
-    path    => '/etc/puppetlabs/puppet/puppet.conf',
-    section => 'main',
-    setting => 'modulepath',
-    value   => '/vagrant/modules:/opt/puppet/share/puppet/modules',
-  }
+  #file { '/etc/puppetlabs/puppet/autosign.conf':
+  #  ensure  => file,
+  #  content => "*\n",
+  #}
+  #ini_setting { 'puppet.conf main manifest':
+  #  path    => '/etc/puppetlabs/puppet/puppet.conf',
+  #  section => 'main',
+  #  setting => 'manifest',
+  #  value   => '/vagrant/manifests/site.pp',
+  #}
+  #ini_setting { 'puppet.conf main modulepath':
+  #  path    => '/etc/puppetlabs/puppet/puppet.conf',
+  #  section => 'main',
+  #  setting => 'modulepath',
+  #  value   => '/vagrant/modules:/opt/puppet/share/puppet/modules',
+  #}
   service { 'pe-puppet':
     ensure => stopped,
   }
 }
 
 node 'haproxy' {
-  ## Configure haproxy for our puppet masters.
-  class { 'haproxy': }
+  ### Configure haproxy for our puppet masters.
+  #class { 'haproxy': }
 
-  ## HA puppet masters
-  haproxy::listen { 'puppet00':
-    ipaddress        => '*',
-    ports            => '8140',
-    collect_exported => false,
-  }
-  haproxy::balancermember { 'puppetmaster master-nonca1.puppetlabs.vm':
-    listening_service => 'puppet00',
-    ipaddresses       => '10.2.10.12',
-    ports             => '8140',
-    options           => 'check',
-  }
-  haproxy::balancermember { 'puppetmaster master-nonca2.puppetlabs.vm':
-    listening_service => 'puppet00',
-    ipaddresses       => '10.2.10.13',
-    ports             => '8140',
-    options           => 'check',
-  }
+  ### HA puppet masters
+  #haproxy::listen { 'puppet00':
+  #  ipaddress        => '*',
+  #  ports            => '8140',
+  #  collect_exported => false,
+  #}
+  #haproxy::balancermember { 'puppetmaster master-nonca1.puppetlabs.vm':
+  #  listening_service => 'puppet00',
+  #  ipaddresses       => '10.2.10.12',
+  #  ports             => '8140',
+  #  options           => 'check',
+  #}
+  #haproxy::balancermember { 'puppetmaster master-nonca2.puppetlabs.vm':
+  #  listening_service => 'puppet00',
+  #  ipaddresses       => '10.2.10.13',
+  #  ports             => '8140',
+  #  options           => 'check',
+  #}
 
-  ## HA activemq
-  haproxy::listen { 'activemq00':
-    ipaddress        => '*',
-    ports            => '61613',
-    collect_exported => false,
-  }
-  haproxy::balancermember { 'activemq master-nonca1.puppetlabs.vm':
-    listening_service => 'activemq00',
-    ipaddresses       => '10.2.10.12',
-    ports             => '61613',
-    options           => 'check',
-  }
-  haproxy::balancermember { 'activemq master-nonca2.puppetlabs.vm':
-    listening_service => 'activemq00',
-    ipaddresses       => '10.2.10.13',
-    ports             => '61613',
-    options           => 'check',
-  }
+  ### HA activemq
+  #haproxy::listen { 'activemq00':
+  #  ipaddress        => '*',
+  #  ports            => '61613',
+  #  collect_exported => false,
+  #}
+  #haproxy::balancermember { 'activemq master-nonca1.puppetlabs.vm':
+  #  listening_service => 'activemq00',
+  #  ipaddresses       => '10.2.10.12',
+  #  ports             => '61613',
+  #  options           => 'check',
+  #}
+  #haproxy::balancermember { 'activemq master-nonca2.puppetlabs.vm':
+  #  listening_service => 'activemq00',
+  #  ipaddresses       => '10.2.10.13',
+  #  ports             => '61613',
+  #  options           => 'check',
+  #}
 
-  ## HA console
-  haproxy::listen { 'console00':
-    ipaddress        => '*',
-    ports            => '443',
-    collect_exported => false,
-  }
-  haproxy::balancermember { 'console console1.puppetlabs.vm':
-    listening_service => 'console00',
-    ipaddresses       => '10.2.10.15',
-    ports             => '443',
-    options           => [
-      'check',
-      'downinter 500',
-    ],
-  }
-  haproxy::balancermember { 'console console2.puppetlabs.vm':
-    listening_service => 'console00',
-    ipaddresses       => '10.2.10.16',
-    ports             => '443',
-    options           => [
-      'check',
-      'backup',
-    ],
-  }
-  ## Inventory Service
-  haproxy::listen { 'console01':
-    ipaddress        => '*',
-    ports            => '8141',
-    collect_exported => false,
-  }
-  haproxy::balancermember { 'inventory console1.puppetlabs.vm':
-    listening_service => 'console01',
-    ipaddresses       => '10.2.10.15',
-    ports             => '8141',
-    options           => [
-      'check',
-      'downinter 500',
-    ],
-  }
-  haproxy::balancermember { 'inventory console2.puppetlabs.vm':
-    listening_service => 'console01',
-    ipaddresses       => '10.2.10.16',
-    ports             => '8141',
-    options           => [
-      'check',
-      'backup',
-    ],
-  }
+  ### HA console
+  #haproxy::listen { 'console00':
+  #  ipaddress        => '*',
+  #  ports            => '443',
+  #  collect_exported => false,
+  #}
+  #haproxy::balancermember { 'console console1.puppetlabs.vm':
+  #  listening_service => 'console00',
+  #  ipaddresses       => '10.2.10.15',
+  #  ports             => '443',
+  #  options           => [
+  #    'check',
+  #    'downinter 500',
+  #  ],
+  #}
+  #haproxy::balancermember { 'console console2.puppetlabs.vm':
+  #  listening_service => 'console00',
+  #  ipaddresses       => '10.2.10.16',
+  #  ports             => '443',
+  #  options           => [
+  #    'check',
+  #    'backup',
+  #  ],
+  #}
+  ### Inventory Service
+  #haproxy::listen { 'console01':
+  #  ipaddress        => '*',
+  #  ports            => '8141',
+  #  collect_exported => false,
+  #}
+  #haproxy::balancermember { 'inventory console1.puppetlabs.vm':
+  #  listening_service => 'console01',
+  #  ipaddresses       => '10.2.10.15',
+  #  ports             => '8141',
+  #  options           => [
+  #    'check',
+  #    'downinter 500',
+  #  ],
+  #}
+  #haproxy::balancermember { 'inventory console2.puppetlabs.vm':
+  #  listening_service => 'console01',
+  #  ipaddresses       => '10.2.10.16',
+  #  ports             => '8141',
+  #  options           => [
+  #    'check',
+  #    'backup',
+  #  ],
+  #}
   #extra
   service { 'pe-puppet':
     ensure => stopped,
   }
 }
 
-node 'mysql' {
-  class { 'mysql::server':
-    config_hash => {
-      'root_password' => 'mysql_root_password',
-      'bind_address'  => '0.0.0.0',
+node 'postgres' {
+  class { 'postgresql::server':
+    config_hash                    => {
+      'ip_mask_deny_postgres_user' => '0.0.0.0/32',
+      'ip_mask_allow_all_users'    => '0.0.0.0/0',
+      'listen_addresses'           => '*',
+      'postgres_password'          => 'postgres_password',
     }
   }
-  database_user { 'root@console1.puppetlabs.vm':
-    password_hash => mysql_password('mysql_root_password'),
-    require       => Class['mysql::server'],
+  postgresql::db { 'console_auth':
+    user     => 'console_auth',
+    password => postgresql_password('console_auth','puppetlabs'),
   }
-  database_grant { 'root@console1.puppetlabs.vm':
-    privileges => 'all',
+  postgresql::db { 'console':
+    user     => 'console',
+    password => postgresql_password('console','puppetlabs'),
   }
-  database_user { 'console@console2.puppetlabs.vm':
-    password_hash => mysql_password('DjUilvnVItEEaudcEIbV'),
-    require       => Class['mysql::server'],
+  postgresql::db { 'pe-puppetdb':
+    user     => 'pe-puppetdb',
+    password => postgresql_password('pe-puppetdb','puppetlabs'),
   }
-  database_grant { 'console@console2.puppetlabs.vm/console':
-    privileges => 'all',
-  }
-  database_grant { 'console@console2.puppetlabs.vm/console_inventory_service':
-    privileges => 'all',
-  }
-  database_user { 'console_auth@console2.puppetlabs.vm':
-    password_hash => mysql_password('368Mg6NcQ5PVPuiUSi1T'),
-    require       => Class['mysql::server'],
-  }
-  database_grant { 'console_auth@console2.puppetlabs.vm/console_auth':
-    privileges => 'all',
-  }
-  #extra
+  #non-scaling extra
   service { 'pe-puppet':
     ensure => stopped,
   }
+}
+
+node /puppetdb\d/ {
+  # classify?
 }
 
 node /^console\d/ {
