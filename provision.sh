@@ -13,15 +13,17 @@ fi
 if ! grep 'puppet.puppetlabs.vm' /etc/hosts > /dev/null ; then
   echo 'Configuring /etc/hosts'
   cat >> /etc/hosts <<EOF
-10.2.10.10 haproxy.puppetlabs.vm   haproxy
+10.2.10.10 lb.puppetlabs.vm        lb
 10.2.10.11 postgres.puppetlabs.vm  postgres
-10.2.10.12 nonca1.puppetlabs.vm    nonca1
-10.2.10.13 nonca2.puppetlabs.vm    nonca2
-10.2.10.14 puppetdb1.puppetlabs.vm puppetdb1
-10.2.10.15 puppetdb2.puppetlabs.vm puppetdb2
-10.2.10.16 console1.puppetlabs.vm  console1
-10.2.10.17 console2.puppetlabs.vm  console2
-10.2.10.18 agent1.puppetlabs.vm    agent1
+10.2.10.12 ca1.puppetlabs.vm       ca1
+10.2.10.13 ca2.puppetlabs.vm       ca2
+10.2.10.14 nonca1.puppetlabs.vm    nonca1
+10.2.10.15 nonca2.puppetlabs.vm    nonca2
+10.2.10.16 puppetdb1.puppetlabs.vm puppetdb1
+10.2.10.17 puppetdb2.puppetlabs.vm puppetdb2
+10.2.10.18 console1.puppetlabs.vm  console1
+10.2.10.19 console2.puppetlabs.vm  console2
+10.2.10.20 agent1.puppetlabs.vm    agent1
 10.2.10.10 puppet.puppetlabs.vm    puppet
 EOF
 fi
@@ -31,7 +33,7 @@ if [ ! -d /opt/puppet ] ; then
   /vagrant/pe/puppet-enterprise-installer -D -a /vagrant/answers/`hostname -f`
 fi
 
-if [ $(hostname -s) = 'nonca1' -o $(hostname -s) = 'nonca2' ] ; then
+if [ $(hostname -s) = 'ca1' -o $(hostname -s) = 'ca2' -o  $(hostname -s) = 'nonca1' -o $(hostname -s) = 'nonca2' ] ; then
   if ! grep 'import' /etc/puppetlabs/puppet/manifests/site.pp > /dev/null ; then
     echo 'Catting to site.pp'
     echo 'import "/vagrant/manifests/site.pp"' >> /etc/puppetlabs/puppet/manifests/site.pp
@@ -43,8 +45,4 @@ if [ $(hostname -s) = 'nonca1' -o $(hostname -s) = 'nonca2' ] ; then
   fi
 fi
 
-if [ $(hostname -s) = 'haproxy' -o $(hostname -s) = 'postgres' ] ; then
-  /opt/puppet/bin/puppet apply --modulepath /vagrant/modules:/opt/puppet/share/puppet/modules /vagrant/manifests/site.pp
-#else
-  #/opt/puppet/bin/puppet agent -t && exit 0
-fi
+/opt/puppet/bin/puppet apply --show_diff --modulepath /vagrant/modules:/vagrant/modules-extra /vagrant/manifests/site.pp
