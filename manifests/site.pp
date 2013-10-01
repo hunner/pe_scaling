@@ -1,5 +1,13 @@
 node 'lb' {
   ## Special vagrant stuff
+  file { '/etc/puppetlabs/puppet/ssl/crl.pem':
+    source => '/vagrant/files/ssl/crl.pem',
+    before => Class['apache'],
+  }
+  file { '/etc/puppetlabs/puppet/ssl/certs/ca.pem':
+    source => '/vagrant/files/ssl/certs/ca.pem',
+    before => Class['apache'],
+  }
   file { '/etc/puppetlabs/puppet/ssl/certs/lb.puppetlabs.vm.pem':
     owner  => 'pe-puppet',
     group  => 'pe-puppet',
@@ -58,7 +66,7 @@ node 'lb' {
     ssl             => true,
     ssl_cert        => "/etc/puppetlabs/puppet/ssl/certs/${::fqdn}.pem",
     ssl_key         => "/etc/puppetlabs/puppet/ssl/private_keys/${::fqdn}.pem",
-    ssl_ca          => '/etc/puppetlabs/puppet/ssl/ca/ca_crt.pem',
+    ssl_ca          => '/etc/puppetlabs/puppet/ssl/certs/ca.pem',
     port            => '8140',
     docroot         => '/dne',
     request_headers => [
@@ -213,20 +221,47 @@ node 'postgres' {
   }
 }
 
+# Used to make certs for other nodes with dns_alt_names
+define make_cert {
+  exec { "generate ${name} cert":
+    command   => "/opt/puppet/bin/puppet certificate generate --ca-location local ${name}.puppetlabs.vm --dns-alt-names ${name},puppet,puppet.puppetlabs.vm",
+    creates   => "/etc/puppetlabs/puppet/ssl/certificate_requests/${name}.puppetlabs.vm.pem",
+    logoutput => 'on_failure',
+    before    => Exec["sign ${name} cert"],
+  }
+  exec { "sign ${name} cert":
+    command   => "/opt/puppet/bin/puppet cert sign ${name}.puppetlabs.vm --allow-dns-alt-names",
+    creates   => "/etc/puppetlabs/puppet/ssl/ca/signed/${name}.puppetlabs.vm.pem",
+    logoutput => 'on_failure',
+  }
+  file { "/vagrant/files/ssl/certs/${name}.puppetlabs.vm.pem":
+    source  => "/etc/puppetlabs/puppet/ssl/ca/signed/${name}.puppetlabs.vm.pem",
+    require => Exec["sign ${name} cert"],
+  }
+  file { "/vagrant/files/ssl/public_keys/${name}.puppetlabs.vm.pem":
+    source  => "/etc/puppetlabs/puppet/ssl/public_keys/${name}.puppetlabs.vm.pem",
+    require => Exec["sign ${name} cert"],
+  }
+  file { "/vagrant/files/ssl/private_keys/${name}.puppetlabs.vm.pem":
+    source  => "/etc/puppetlabs/puppet/ssl/private_keys/${name}.puppetlabs.vm.pem",
+    require => Exec["sign ${name} cert"],
+  }
+}
+
 node /^ca\d/ {
+  ## Workaround for https://jira-private.puppetlabs.com/browse/PE-1721
+  file { $settings::reportdir:
+    ensure => directory,
+    owner  => 'pe-puppet',
+    group  => 'pe-puppet',
+    mode   => '0750',
+  }
+
+
   if $::clientcert == 'ca1.puppetlabs.vm' {
+    make_cert { ['puppetdb1','puppetdb2','lb']: }
+
     class { 'pe_shared_ca::update_module': }
-    exec { 'generate lb cert':
-      command   => '/opt/puppet/bin/puppet certificate generate --ca-location local lb.puppetlabs.vm --dns-alt-names puppet,puppet.puppetlabs.vm',
-      creates   => '/etc/puppetlabs/puppet/ssl/certificate_requests/lb.puppetlabs.vm.pem',
-      logoutput => 'on_failure',
-      before    => Exec['sign lb cert'],
-    }
-    exec { 'sign lb cert':
-      command   => '/opt/puppet/bin/puppet cert sign lb.puppetlabs.vm --allow-dns-alt-names',
-      creates   => '/etc/puppetlabs/puppet/ssl/ca/signed/lb.puppetlabs.vm.pem',
-      logoutput => 'on_failure',
-    }
     file { [
       '/vagrant/files',
       '/vagrant/files/ssl',
@@ -236,14 +271,11 @@ node /^ca\d/ {
     ]:
       ensure => directory,
     }
-    file { '/vagrant/files/ssl/certs/lb.puppetlabs.vm.pem':
-      source => '/etc/puppetlabs/puppet/ssl/ca/signed/lb.puppetlabs.vm.pem',
+    file { '/vagrant/files/ssl/crl.pem':
+      source => '/etc/puppetlabs/puppet/ssl/crl.pem',
     }
-    file { '/vagrant/files/ssl/public_keys/lb.puppetlabs.vm.pem':
-      source => '/etc/puppetlabs/puppet/ssl/public_keys/lb.puppetlabs.vm.pem',
-    }
-    file { '/vagrant/files/ssl/private_keys/lb.puppetlabs.vm.pem':
-      source => '/etc/puppetlabs/puppet/ssl/private_keys/lb.puppetlabs.vm.pem',
+    file { '/vagrant/files/ssl/certs/ca.pem':
+      source => '/etc/puppetlabs/puppet/ssl/certs/ca.pem',
     }
   } else {
     class { 'pe_shared_ca':
@@ -292,6 +324,14 @@ node /^ca\d/ {
 }
 
 node /^nonca\d/ {
+  ## Workaround for https://jira-private.puppetlabs.com/browse/PE-1721
+  file { $settings::reportdir:
+    ensure => directory,
+    owner  => 'pe-puppet',
+    group  => 'pe-puppet',
+    mode   => '0750',
+  }
+
   ####################################################################
 
   ## First run (before manual steps)
@@ -311,6 +351,12 @@ node /^nonca\d/ {
   # 3. On non-CA: Run `puppet agent -t` to retrieve signed cert.
 
   ## Second run (after signing cert)
+#  file { '/etc/puppetlabs/puppet/ssl/crl.pem':
+#    source => '/vagrant/files/ssl/crl.pem',
+#    owner  => 'pe-puppet',
+#    group  => 'pe-puppet',
+#    before => File_line['pe-httpd_crl'],
+#  }
 #  file_line { 'pe-httpd_crl':
 #    path  => '/etc/puppetlabs/httpd/conf.d/puppetmaster.conf',
 #    match => '    SSLCARevocationFile     /etc/puppetlabs/puppet/ssl/.*crl.pem',
@@ -350,19 +396,39 @@ node /^nonca\d/ {
 #    }
 #  }
 
+  ####################################################################
+
   #vagrant extra
   if ! defined(Service['pe-puppet']) {
     service { 'pe-puppet':
       ensure => stopped,
     }
   }
-
-  ####################################################################
-
 }
 
 node /puppetdb\d/ {
-  # classify?
+  ## Special vagrant stuff
+  file { "/etc/puppetlabs/puppet/ssl/certs/${::clientcert}.pem":
+    owner  => 'pe-puppet',
+    group  => 'pe-puppet',
+    mode   => '0644',
+    source => "/vagrant/files/ssl/certs/${::clientcert}.pem",
+    before => Class['apache'],
+  }
+  file { "/etc/puppetlabs/puppet/ssl/public_keys/${::clientcert}.pem":
+    owner  => 'pe-puppet',
+    group  => 'pe-puppet',
+    mode   => '0644',
+    source => "/vagrant/files/ssl/public_keys/${::clientcert}.pem",
+    before => Class['apache'],
+  }
+  file { "/etc/puppetlabs/puppet/ssl/private_keys/${::clientcert}.pem":
+    owner  => 'pe-puppet',
+    group  => 'pe-puppet',
+    mode   => '0600',
+    source => "/vagrant/files/ssl/private_keys/${::clientcert}.pem",
+    before => Class['apache'],
+  }
 }
 
 node /^console\d/ {
