@@ -413,21 +413,18 @@ node /puppetdb\d/ {
     group  => 'pe-puppet',
     mode   => '0644',
     source => "/vagrant/files/ssl/certs/${::clientcert}.pem",
-    before => Class['apache'],
   }
   file { "/etc/puppetlabs/puppet/ssl/public_keys/${::clientcert}.pem":
     owner  => 'pe-puppet',
     group  => 'pe-puppet',
     mode   => '0644',
     source => "/vagrant/files/ssl/public_keys/${::clientcert}.pem",
-    before => Class['apache'],
   }
   file { "/etc/puppetlabs/puppet/ssl/private_keys/${::clientcert}.pem":
     owner  => 'pe-puppet',
     group  => 'pe-puppet',
     mode   => '0600',
     source => "/vagrant/files/ssl/private_keys/${::clientcert}.pem",
-    before => Class['apache'],
   }
 }
 

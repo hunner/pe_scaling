@@ -12,7 +12,9 @@ fi
 # Set up hosts
 if ! grep 'puppet.puppetlabs.vm' /etc/hosts > /dev/null ; then
   echo 'Configuring /etc/hosts'
-  cat >> /etc/hosts <<EOF
+  cat > /etc/hosts <<EOF
+127.0.0.1  localhost localhost.localdomain localhost4
+::1        localhost localhost.localdomain localhost6
 10.2.10.10 lb.puppetlabs.vm        lb
 10.2.10.11 postgres.puppetlabs.vm  postgres
 10.2.10.12 ca1.puppetlabs.vm       ca1
