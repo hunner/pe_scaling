@@ -16,9 +16,9 @@
 [submodule "modules-extra/stdlib"]
 	path = modules-extra/stdlib
 	url = https://github.com/puppetlabs/puppetlabs-stdlib.git
-[submodule "modules-extra/apache"]
-	path = modules-extra/apache
-	url = https://github.com/puppetlabs/puppetlabs-apache.git
-[submodule "modules-extra/haproxy"]
-	path = modules-extra/haproxy
+[submodule "modules/haproxy"]
+	path = modules/haproxy
 	url = https://github.com/puppetlabs/puppetlabs-haproxy.git
+[submodule "modules/apache"]
+	path = modules/apache
+	url = https://github.com/puppetlabs/puppetlabs-apache.git

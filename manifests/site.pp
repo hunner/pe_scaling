@@ -195,7 +195,21 @@ node 'lb' {
 }
 
 node 'postgres' {
+  package { 'pgdg-centos92':
+    ensure   => present,
+    source   => '/vagrant/pgdg-centos92-9.2-6.noarch.rpm',
+    provider => 'rpm',
+    before   => Class['postgresql'],
+  }
+
+  class { 'postgresql':
+    version => '9.2',
+    bindir  => '/usr/pgsql-9.2/bin',
+    before  => Class['postgresql::server'],
+  }
+
   class { 'postgresql::server':
+    package_name                   => 'postgresql92-server',
     config_hash                    => {
       'ip_mask_deny_postgres_user' => '0.0.0.0/32',
       'ip_mask_allow_all_users'    => '0.0.0.0/0',
@@ -413,18 +427,25 @@ node /puppetdb\d/ {
     group  => 'pe-puppet',
     mode   => '0644',
     source => "/vagrant/files/ssl/certs/${::clientcert}.pem",
+    notify => Exec['/opt/puppet/sbin/puppetdb-ssl-setup'],
   }
   file { "/etc/puppetlabs/puppet/ssl/public_keys/${::clientcert}.pem":
     owner  => 'pe-puppet',
     group  => 'pe-puppet',
     mode   => '0644',
     source => "/vagrant/files/ssl/public_keys/${::clientcert}.pem",
+    notify => Exec['/opt/puppet/sbin/puppetdb-ssl-setup'],
   }
   file { "/etc/puppetlabs/puppet/ssl/private_keys/${::clientcert}.pem":
     owner  => 'pe-puppet',
     group  => 'pe-puppet',
     mode   => '0600',
     source => "/vagrant/files/ssl/private_keys/${::clientcert}.pem",
+    notify => Exec['/opt/puppet/sbin/puppetdb-ssl-setup'],
+  }
+  exec { '/opt/puppet/sbin/puppetdb-ssl-setup':
+    refreshonly => true,
+    notify      => Service['pe-puppetdb'],
   }
 }
 
