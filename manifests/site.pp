@@ -32,6 +32,9 @@ node 'lb' {
 
   ## Load balance http connections with apache
   class { 'apache': }
+  class { 'apache::mod::proxy':
+    allow_from => '10.2.10',
+  }
 
   ## HA puppet CAs
   apache::balancer { 'puppet_ca':
@@ -197,7 +200,7 @@ node 'lb' {
 node 'postgres' {
   package { 'pgdg-centos92':
     ensure   => present,
-    source   => '/vagrant/pgdg-centos92-9.2-6.noarch.rpm',
+    source   => 'http://yum.postgresql.org/9.2/redhat/rhel-6-x86_64/pgdg-redhat92-9.2-7.noarch.rpm',
     provider => 'rpm',
     before   => Class['postgresql'],
   }
@@ -443,64 +446,63 @@ node /puppetdb\d/ {
     source => "/vagrant/files/ssl/private_keys/${::clientcert}.pem",
     notify => Exec['/opt/puppet/sbin/puppetdb-ssl-setup'],
   }
-  exec { '/opt/puppet/sbin/puppetdb-ssl-setup':
+  file_line { '/etc/puppetlabs/puppetdb/certificate_whitelist':
+    ensure => present,
+    line   => 'nonca1.puppetlabs.vm',
+  }
+  file_line { '/etc/puppetlabs/puppetdb/certificate_whitelist':
+    ensure => present,
+    line   => 'nonca2.puppetlabs.vm',
+  }
+  exec { '/opt/puppet/sbin/puppetdb-ssl-setup -f':
     refreshonly => true,
     notify      => Service['pe-puppetdb'],
+  }
+  if ! defined(Service['pe-puppetdb']) {
+    service { 'pe-puppetdb':
+      ensure => running,
+    }
   }
 }
 
 node /^console\d/ {
-  ####################################################################
-
-  ## First run (before manual steps)
-  #class { 'pe_shared_ca':
-  #  ca_server => true,
-  #}
-
-  # Manual steps:
-  # 1. Run `puppet master --no-daemonize -v` to generate new cert with dns alt names
-  # 2. Press ^C to kill the puppet master when it says "Starting Puppet master"
-  # 3. Run `service pe-httpd start` to start the master with the new cert
-  # 4. Add 'custom_auth_conf=false' parameter on the DG
-
-  ### Second run (after signing cert)
-  ##
-  ## This stuff should come from the Console
-  #include pe_mcollective::role::console
-  #include pe_mcollective::role::master
-  #include pe_accounts
-  #include pe_mcollective
-
-  ### Configure auth.conf
-  #class { 'pe_httpd::ca':
-  #  masterport       => '8141',
-  #  master_certnames => [
-  #    'nonca1.puppetlabs.vm',
-  #    'nonca2.puppetlabs.vm',
-  #  ],
-  #}
-  #class { 'pe_httpd::console':
-  #  masterport => '8141',
-  #}
-
-  #ini_setting { 'puppet.conf agent server':
-  #  path    => '/etc/puppetlabs/puppet/puppet.conf',
-  #  section => 'agent',
-  #  setting => 'server',
-  #  value   => $::ca_server,
-  #}
-  #ini_setting { 'puppet.conf main dns_alt_names':
-  #  path    => '/etc/puppetlabs/puppet/puppet.conf',
-  #  section => 'main',
-  #  setting => 'dns_alt_names',
-  #  value   => "puppet,puppet.${::domain},${::hostname},${::fqdn}",
-  #}
-
-  ## EXTRA: To make vagrant easier
-  #file { '/etc/puppetlabs/puppet/autosign.conf':
-  #  ensure  => file,
-  #  content => "*\n",
-  #}
+  $rake = '/opt/puppet/bin/rake -f /opt/puppet/share/puppet-dashboard/Rakefile RAILS_ENV=production'
+  exec { 'Configure puppet nodes':
+    command => "${rake} \
+       'node:add[lb.puppetlabs.vm,mcollective,,skip]' \
+       'node:add[postgres.puppetlabs.vm,mcollective,,skip]' \
+       'node:add[ca1.puppetlabs.vm,puppet_master\,mcollective,,skip]' \
+       'node:add[ca2.puppetlabs.vm,puppet_master\,mcollective,,skip]' \
+       'node:add[nonca1.puppetlabs.vm,puppet_master\,mcollective,pe_puppetdb::master,skip]' \
+       'node:add[nonca2.puppetlabs.vm,puppet_master\,mcollective,pe_puppetdb::master,skip]' \
+       'node:add[puppetdb1.puppetlabs.vm,puppet_puppetdb\,mcollective,,skip]' \
+       'node:add[puppetdb2.puppetlabs.vm,puppet_puppetdb\,mcollective,,skip]' \
+       'node:add[console1.puppetlabs.vm,puppet_console\,mcollective,,skip]' \
+       'node:add[console2.puppetlabs.vm,puppet_console\,mcollective,,skip]' \
+       'node:variables[nonca1.puppetlabs.vm,activemq_brokers=nonca2]' \
+       'node:variables[nonca2.puppetlabs.vm,activemq_brokers=nonca1]' \
+       'node:addclass[puppetdb1.puppetlabs.vm,pe_puppetdb]' \
+       'node:addclass[puppetdb2.puppetlabs.vm,pe_puppetdb]' \
+       'node:addclassparam[puppetdb1.puppetlabs.vm,pe_puppetdb,database_host,postgres.puppetlabs.vm]' \
+       'node:addclassparam[puppetdb1.puppetlabs.vm,pe_puppetdb,manage_database,false]' \
+       'node:addclassparam[puppetdb1.puppetlabs.vm,pe_puppetdb,ssl_listen_address,puppetdb1.puppetlabs.vm]' \
+       'node:addclassparam[puppetdb2.puppetlabs.vm,pe_puppetdb,database_host,postgres.puppetlabs.vm]' \
+       'node:addclassparam[puppetdb2.puppetlabs.vm,pe_puppetdb,manage_database,false]' \
+       'node:addclassparam[puppetdb2.puppetlabs.vm,pe_puppetdb,ssl_listen_address,puppetdb2.puppetlabs.vm]' \
+       'node:addclassparam[nonca1.puppetlabs.vm,pe_puppetdb::master,manage_config,true]' \
+       'node:addclassparam[nonca1.puppetlabs.vm,pe_puppetdb::master,manage_report_processor,true]' \
+       'node:addclassparam[nonca1.puppetlabs.vm,pe_puppetdb::master,manage_routes,true]' \
+       'node:addclassparam[nonca1.puppetlabs.vm,pe_puppetdb::master,manage_storeconfigs,true]' \
+       'node:addclassparam[nonca1.puppetlabs.vm,pe_puppetdb::master,puppetdb_server,puppet]' \
+       'node:addclassparam[nonca2.puppetlabs.vm,pe_puppetdb::master,manage_config,true]' \
+       'node:addclassparam[nonca2.puppetlabs.vm,pe_puppetdb::master,manage_report_processor,true]' \
+       'node:addclassparam[nonca2.puppetlabs.vm,pe_puppetdb::master,manage_routes,true]' \
+       'node:addclassparam[nonca2.puppetlabs.vm,pe_puppetdb::master,manage_storeconfigs,true]' \
+       'node:addclassparam[nonca2.puppetlabs.vm,pe_puppetdb::master,puppetdb_server,puppet]' \
+       'node:del[puppet]'
+    ",
+    onlyif  => "${rake} node:list[^puppet$] | grep puppet",
+  }
   service { 'pe-puppet':
     ensure => stopped,
   }
