@@ -198,7 +198,7 @@ node 'lb' {
 }
 
 node 'postgres' {
-  package { 'pgdg-centos92':
+  package { 'pgdg-redhat92-9.2-7.noarch':
     ensure   => present,
     source   => 'http://yum.postgresql.org/9.2/redhat/rhel-6-x86_64/pgdg-redhat92-9.2-7.noarch.rpm',
     provider => 'rpm',
@@ -430,39 +430,41 @@ node /puppetdb\d/ {
     group  => 'pe-puppet',
     mode   => '0644',
     source => "/vagrant/files/ssl/certs/${::clientcert}.pem",
-    notify => Exec['/opt/puppet/sbin/puppetdb-ssl-setup'],
+    notify => Exec['/opt/puppet/sbin/puppetdb-ssl-setup -f'],
   }
   file { "/etc/puppetlabs/puppet/ssl/public_keys/${::clientcert}.pem":
     owner  => 'pe-puppet',
     group  => 'pe-puppet',
     mode   => '0644',
     source => "/vagrant/files/ssl/public_keys/${::clientcert}.pem",
-    notify => Exec['/opt/puppet/sbin/puppetdb-ssl-setup'],
+    notify => Exec['/opt/puppet/sbin/puppetdb-ssl-setup -f'],
   }
   file { "/etc/puppetlabs/puppet/ssl/private_keys/${::clientcert}.pem":
     owner  => 'pe-puppet',
     group  => 'pe-puppet',
     mode   => '0600',
     source => "/vagrant/files/ssl/private_keys/${::clientcert}.pem",
-    notify => Exec['/opt/puppet/sbin/puppetdb-ssl-setup'],
+    notify => Exec['/opt/puppet/sbin/puppetdb-ssl-setup -f'],
   }
-  file_line { '/etc/puppetlabs/puppetdb/certificate_whitelist':
+  file_line { 'allow nonca1':
     ensure => present,
+    path   => '/etc/puppetlabs/puppetdb/certificate-whitelist',
     line   => 'nonca1.puppetlabs.vm',
   }
-  file_line { '/etc/puppetlabs/puppetdb/certificate_whitelist':
+  file_line { 'allow nonca2':
     ensure => present,
+    path   => '/etc/puppetlabs/puppetdb/certificate-whitelist',
     line   => 'nonca2.puppetlabs.vm',
   }
   exec { '/opt/puppet/sbin/puppetdb-ssl-setup -f':
     refreshonly => true,
     notify      => Service['pe-puppetdb'],
   }
-  if ! defined(Service['pe-puppetdb']) {
-    service { 'pe-puppetdb':
-      ensure => running,
-    }
-  }
+  #if ! defined(Service['pe-puppetdb']) {
+  #  service { 'pe-puppetdb':
+  #    ensure => running,
+  #  }
+  #}
 }
 
 node /^console\d/ {
