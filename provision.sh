@@ -15,18 +15,18 @@ if ! grep 'puppet.puppetlabs.vm' /etc/hosts > /dev/null ; then
   cat > /etc/hosts <<EOF
 127.0.0.1  localhost localhost.localdomain localhost4
 ::1        localhost localhost.localdomain localhost6
-10.2.10.10 lb.puppetlabs.vm        lb
-10.2.10.11 postgres.puppetlabs.vm  postgres
-10.2.10.12 ca1.puppetlabs.vm       ca1
-10.2.10.13 ca2.puppetlabs.vm       ca2
-10.2.10.14 nonca1.puppetlabs.vm    nonca1
-10.2.10.15 nonca2.puppetlabs.vm    nonca2
-10.2.10.16 puppetdb1.puppetlabs.vm puppetdb1
-10.2.10.17 puppetdb2.puppetlabs.vm puppetdb2
-10.2.10.18 console1.puppetlabs.vm  console1
-10.2.10.19 console2.puppetlabs.vm  console2
-10.2.10.20 agent1.puppetlabs.vm    agent1
-10.2.10.10 puppet.puppetlabs.vm    puppet
+10.3.0.10 lb.puppetlabs.vm        lb
+10.3.0.11 postgres.puppetlabs.vm  postgres
+10.3.0.12 ca1.puppetlabs.vm       ca1
+10.3.0.13 ca2.puppetlabs.vm       ca2
+10.3.0.14 nonca1.puppetlabs.vm    nonca1
+10.3.0.15 nonca2.puppetlabs.vm    nonca2
+10.3.0.16 puppetdb1.puppetlabs.vm puppetdb1
+10.3.0.17 puppetdb2.puppetlabs.vm puppetdb2
+10.3.0.18 console1.puppetlabs.vm  console1
+10.3.0.19 console2.puppetlabs.vm  console2
+10.3.0.20 agent1.puppetlabs.vm    agent1
+10.3.0.10 puppet.puppetlabs.vm    puppet
 EOF
 fi
 

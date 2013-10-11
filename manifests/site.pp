@@ -33,7 +33,7 @@ node 'lb' {
   ## Load balance http connections with apache
   class { 'apache': }
   class { 'apache::mod::proxy':
-    allow_from => '10.2.10',
+    allow_from => '10.3.0',
   }
 
   ## HA puppet CAs
@@ -122,7 +122,7 @@ node 'lb' {
   }
   haproxy::balancermember { 'console console1.puppetlabs.vm':
     listening_service => 'console00',
-    ipaddresses       => '10.2.10.18',
+    ipaddresses       => '10.3.0.18',
     ports             => '443',
     options           => [
       'check',
@@ -131,7 +131,7 @@ node 'lb' {
   }
   haproxy::balancermember { 'console console2.puppetlabs.vm':
     listening_service => 'console00',
-    ipaddresses       => '10.2.10.19',
+    ipaddresses       => '10.3.0.19',
     ports             => '443',
     options           => [
       'check',
@@ -147,13 +147,13 @@ node 'lb' {
   }
   haproxy::balancermember { 'activemq nonca1.puppetlabs.vm':
     listening_service => 'activemq00',
-    ipaddresses       => '10.2.10.14',
+    ipaddresses       => '10.3.0.14',
     ports             => '61613',
     options           => 'check',
   }
   haproxy::balancermember { 'activemq nonca2.puppetlabs.vm':
     listening_service => 'activemq00',
-    ipaddresses       => '10.2.10.15',
+    ipaddresses       => '10.3.0.15',
     ports             => '61613',
     options           => 'check',
   }
@@ -166,7 +166,7 @@ node 'lb' {
   }
   haproxy::balancermember { 'puppetdb puppetdb1.puppetlabs.vm':
     listening_service => 'puppetdb00',
-    ipaddresses       => '10.2.10.16',
+    ipaddresses       => '10.3.0.16',
     ports             => '8081',
     options           => [
       'check',
@@ -175,7 +175,7 @@ node 'lb' {
   }
   haproxy::balancermember { 'puppetdb puppetdb2.puppetlabs.vm':
     listening_service => 'puppetdb00',
-    ipaddresses       => '10.2.10.17',
+    ipaddresses       => '10.3.0.17',
     ports             => '8081',
     options           => [
       'check',
@@ -354,12 +354,17 @@ node /^nonca\d/ {
   ## First run (before manual steps)
   #class { 'pe_shared_ca':
   #  ca_server => false,
+  #  before    => Exec['stop'],
   #}
   #ini_setting { 'puppet.conf main dns_alt_names':
   #  path    => '/etc/puppetlabs/puppet/puppet.conf',
   #  section => 'main',
   #  setting => 'dns_alt_names',
   #  value   => "puppet,puppet.${::domain},${::hostname},${::fqdn}",
+  #  before  => Exec['stop'],
+  #}
+  #exec { 'stop':
+  #  command => '/bin/false',
   #}
 
   # Manual steps:
@@ -460,50 +465,52 @@ node /puppetdb\d/ {
     refreshonly => true,
     notify      => Service['pe-puppetdb'],
   }
-  #if ! defined(Service['pe-puppetdb']) {
-  #  service { 'pe-puppetdb':
-  #    ensure => running,
-  #  }
-  #}
+  if ! defined(Service['pe-puppetdb']) {
+    service { 'pe-puppetdb':
+      ensure => running,
+    }
+  }
 }
 
 node /^console\d/ {
-  $rake = '/opt/puppet/bin/rake -f /opt/puppet/share/puppet-dashboard/Rakefile RAILS_ENV=production'
-  exec { 'Configure puppet nodes':
-    command => "${rake} \
-       'node:add[lb.puppetlabs.vm,mcollective,,skip]' \
-       'node:add[postgres.puppetlabs.vm,mcollective,,skip]' \
-       'node:add[ca1.puppetlabs.vm,puppet_master\,mcollective,,skip]' \
-       'node:add[ca2.puppetlabs.vm,puppet_master\,mcollective,,skip]' \
-       'node:add[nonca1.puppetlabs.vm,puppet_master\,mcollective,pe_puppetdb::master,skip]' \
-       'node:add[nonca2.puppetlabs.vm,puppet_master\,mcollective,pe_puppetdb::master,skip]' \
-       'node:add[puppetdb1.puppetlabs.vm,puppet_puppetdb\,mcollective,,skip]' \
-       'node:add[puppetdb2.puppetlabs.vm,puppet_puppetdb\,mcollective,,skip]' \
-       'node:add[console1.puppetlabs.vm,puppet_console\,mcollective,,skip]' \
-       'node:add[console2.puppetlabs.vm,puppet_console\,mcollective,,skip]' \
-       'node:variables[nonca1.puppetlabs.vm,activemq_brokers=nonca2]' \
-       'node:variables[nonca2.puppetlabs.vm,activemq_brokers=nonca1]' \
-       'node:addclass[puppetdb1.puppetlabs.vm,pe_puppetdb]' \
-       'node:addclass[puppetdb2.puppetlabs.vm,pe_puppetdb]' \
-       'node:addclassparam[puppetdb1.puppetlabs.vm,pe_puppetdb,database_host,postgres.puppetlabs.vm]' \
-       'node:addclassparam[puppetdb1.puppetlabs.vm,pe_puppetdb,manage_database,false]' \
-       'node:addclassparam[puppetdb1.puppetlabs.vm,pe_puppetdb,ssl_listen_address,puppetdb1.puppetlabs.vm]' \
-       'node:addclassparam[puppetdb2.puppetlabs.vm,pe_puppetdb,database_host,postgres.puppetlabs.vm]' \
-       'node:addclassparam[puppetdb2.puppetlabs.vm,pe_puppetdb,manage_database,false]' \
-       'node:addclassparam[puppetdb2.puppetlabs.vm,pe_puppetdb,ssl_listen_address,puppetdb2.puppetlabs.vm]' \
-       'node:addclassparam[nonca1.puppetlabs.vm,pe_puppetdb::master,manage_config,true]' \
-       'node:addclassparam[nonca1.puppetlabs.vm,pe_puppetdb::master,manage_report_processor,true]' \
-       'node:addclassparam[nonca1.puppetlabs.vm,pe_puppetdb::master,manage_routes,true]' \
-       'node:addclassparam[nonca1.puppetlabs.vm,pe_puppetdb::master,manage_storeconfigs,true]' \
-       'node:addclassparam[nonca1.puppetlabs.vm,pe_puppetdb::master,puppetdb_server,puppet]' \
-       'node:addclassparam[nonca2.puppetlabs.vm,pe_puppetdb::master,manage_config,true]' \
-       'node:addclassparam[nonca2.puppetlabs.vm,pe_puppetdb::master,manage_report_processor,true]' \
-       'node:addclassparam[nonca2.puppetlabs.vm,pe_puppetdb::master,manage_routes,true]' \
-       'node:addclassparam[nonca2.puppetlabs.vm,pe_puppetdb::master,manage_storeconfigs,true]' \
-       'node:addclassparam[nonca2.puppetlabs.vm,pe_puppetdb::master,puppetdb_server,puppet]' \
-       'node:del[puppet]'
-    ",
-    onlyif  => "${rake} node:list[^puppet$] | grep puppet",
+  if $::clientcert == 'console1.puppetlabs.vm' {
+    $rake = '/opt/puppet/bin/rake -f /opt/puppet/share/puppet-dashboard/Rakefile RAILS_ENV=production'
+    exec { 'Configure puppet nodes':
+      command => "${rake} \
+         'node:add[lb.puppetlabs.vm,mcollective,,skip]' \
+         'node:add[postgres.puppetlabs.vm,mcollective,,skip]' \
+         'node:add[ca1.puppetlabs.vm,puppet_master\,mcollective,,skip]' \
+         'node:add[ca2.puppetlabs.vm,puppet_master\,mcollective,,skip]' \
+         'node:add[nonca1.puppetlabs.vm,puppet_master\,mcollective,pe_puppetdb::master,skip]' \
+         'node:add[nonca2.puppetlabs.vm,puppet_master\,mcollective,pe_puppetdb::master,skip]' \
+         'node:add[puppetdb1.puppetlabs.vm,puppet_puppetdb\,mcollective,,skip]' \
+         'node:add[puppetdb2.puppetlabs.vm,puppet_puppetdb\,mcollective,,skip]' \
+         'node:add[console1.puppetlabs.vm,puppet_console\,mcollective,,skip]' \
+         'node:add[console2.puppetlabs.vm,puppet_console\,mcollective,,skip]' \
+         'node:variables[nonca1.puppetlabs.vm,activemq_brokers=nonca2]' \
+         'node:variables[nonca2.puppetlabs.vm,activemq_brokers=nonca1]' \
+         'node:addclass[puppetdb1.puppetlabs.vm,pe_puppetdb]' \
+         'node:addclass[puppetdb2.puppetlabs.vm,pe_puppetdb]' \
+         'node:addclassparam[puppetdb1.puppetlabs.vm,pe_puppetdb,database_host,postgres.puppetlabs.vm]' \
+         'node:addclassparam[puppetdb1.puppetlabs.vm,pe_puppetdb,manage_database,false]' \
+         'node:addclassparam[puppetdb1.puppetlabs.vm,pe_puppetdb,ssl_listen_address,puppetdb1.puppetlabs.vm]' \
+         'node:addclassparam[puppetdb2.puppetlabs.vm,pe_puppetdb,database_host,postgres.puppetlabs.vm]' \
+         'node:addclassparam[puppetdb2.puppetlabs.vm,pe_puppetdb,manage_database,false]' \
+         'node:addclassparam[puppetdb2.puppetlabs.vm,pe_puppetdb,ssl_listen_address,puppetdb2.puppetlabs.vm]' \
+         'node:addclassparam[nonca1.puppetlabs.vm,pe_puppetdb::master,manage_config,true]' \
+         'node:addclassparam[nonca1.puppetlabs.vm,pe_puppetdb::master,manage_report_processor,true]' \
+         'node:addclassparam[nonca1.puppetlabs.vm,pe_puppetdb::master,manage_routes,true]' \
+         'node:addclassparam[nonca1.puppetlabs.vm,pe_puppetdb::master,manage_storeconfigs,true]' \
+         'node:addclassparam[nonca1.puppetlabs.vm,pe_puppetdb::master,puppetdb_server,puppet]' \
+         'node:addclassparam[nonca2.puppetlabs.vm,pe_puppetdb::master,manage_config,true]' \
+         'node:addclassparam[nonca2.puppetlabs.vm,pe_puppetdb::master,manage_report_processor,true]' \
+         'node:addclassparam[nonca2.puppetlabs.vm,pe_puppetdb::master,manage_routes,true]' \
+         'node:addclassparam[nonca2.puppetlabs.vm,pe_puppetdb::master,manage_storeconfigs,true]' \
+         'node:addclassparam[nonca2.puppetlabs.vm,pe_puppetdb::master,puppetdb_server,puppet]' \
+         'node:del[puppet]'
+      ",
+      onlyif  => "${rake} node:list[^puppet$] | grep puppet",
+    }
   }
   service { 'pe-puppet':
     ensure => stopped,
